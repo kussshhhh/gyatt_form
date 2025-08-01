@@ -56,14 +56,16 @@ class RepCounter:
         """Initialize repetition counter with validation configuration."""
         self.config = config
         
-        # State sequence tracking
+        # State sequence tracking - allow starting from READY or TOP
         self.required_sequence = [
-            MovementState.TOP,
             MovementState.DESCENDING, 
             MovementState.BOTTOM,
             MovementState.ASCENDING,
             MovementState.TOP
         ]
+        
+        # Valid starting states
+        self.valid_start_states = [MovementState.READY, MovementState.TOP]
         
         # Initialize tracking variables first
         self.sequence_index = 0  # Where we are in the required sequence
@@ -86,29 +88,34 @@ class RepCounter:
         self.current_rep_angles.append(elbow_angle)
         self.current_rep_scores.append(form_score)
         
-        # Check if we're progressing through the sequence
-        expected_state = self.required_sequence[self.sequence_index]
+        # Handle sequence progression
+        if self.sequence_index == 0:
+            # Waiting to start - look for valid starting position
+            if current_state in self.valid_start_states:
+                if self.current_rep_start is None:
+                    self.current_rep_start = timestamp
+            # If we see DESCENDING, start the sequence
+            elif current_state == MovementState.DESCENDING:
+                if self.current_rep_start is None:
+                    self.current_rep_start = timestamp
+                self.sequence_index = 1  # Advance to next expected state (BOTTOM)
         
-        if current_state == expected_state:
-            # We're on track - advance to next state
-            self.sequence_index += 1
+        else:
+            # We're in the middle of a sequence
+            expected_state = self.required_sequence[self.sequence_index]
             
-            # If this is the start of a rep (first TOP position)
-            if self.sequence_index == 1 and self.current_rep_start is None:
-                self.current_rep_start = timestamp
-            
-            # If we completed the full sequence
-            if self.sequence_index >= len(self.required_sequence):
-                return self._complete_repetition(timestamp)
+            if current_state == expected_state:
+                self.sequence_index += 1
                 
-        elif self.sequence_index > 0:
-            # We were in a sequence but deviated - check if we should reset or continue
-            if current_state == self.required_sequence[0]:
-                # Started a new rep from the beginning
+                # Check if we completed the full sequence
+                if self.sequence_index >= len(self.required_sequence):
+                    return self._complete_repetition(timestamp)
+            
+            # Reset if we see a starting state again (new rep starting)
+            elif current_state in self.valid_start_states and self.sequence_index > 2:
+                # Only reset if we're past the initial states to avoid false resets
                 self._reset_current_rep()
-                self.sequence_index = 1
                 self.current_rep_start = timestamp
-            # Otherwise, stay in current position and wait for correct state
         
         return False
     

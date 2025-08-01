@@ -20,6 +20,7 @@ from .analysis.form_analyzer import FormAnalyzer
 from .analysis.state_machine import MovementStateMachine
 from .analysis.rep_counter import RepCounter
 from .utils.geometry import AngleCalculator
+from .utils.video_controls import VideoTransformer, detect_video_orientation, suggest_rotation_for_vertical, add_control_overlay
 from .feedback.guidance import GuidanceSystem
 from .feedback.visual import VisualFeedback
 from .utils.logger import setup_logging, PerformanceLogger
@@ -60,6 +61,10 @@ class GyattFormApp:
         
         # Video input support
         self.video_source = None
+        
+        # Video transformation controls
+        self.video_transformer = VideoTransformer()
+        self.show_controls = True
     
     def initialize_components(self) -> bool:
         """Initialize all system components. Returns True if successful."""
@@ -104,7 +109,16 @@ class GyattFormApp:
             return
         
         self.running = True
-        print("Starting GYATT Form analysis... Press 'q' to quit")
+        print("Starting GYATT Form analysis...")
+        print("Controls: 'q'=quit, 'r'=rotate, 'h'=flip horizontal, 'v'=flip vertical, 'n'=reset, 'c'=toggle controls")
+        
+        # Check if video appears vertical and suggest rotation
+        if self.video_source:
+            test_frame = self.camera_manager.get_frame()
+            if test_frame is not None:
+                orientation = detect_video_orientation(test_frame)
+                if orientation == 'portrait':
+                    print(f"📱 Detected vertical video! Press 'r' to rotate to horizontal orientation")
         
         try:
             while self.running:
@@ -115,9 +129,25 @@ class GyattFormApp:
                 # Process frame through pipeline
                 self.process_frame(frame)
                 
-                # Check for exit condition
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+                # Handle keyboard input
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord('q'):
                     break
+                elif key == ord('r'):
+                    rotation = self.video_transformer.cycle_rotation()
+                    print(f"🔄 Rotated to: {rotation.name}")
+                elif key == ord('h'):
+                    flipped = self.video_transformer.toggle_horizontal_flip()
+                    print(f"↔️ Horizontal flip: {'ON' if flipped else 'OFF'}")
+                elif key == ord('v'):
+                    flipped = self.video_transformer.toggle_vertical_flip()
+                    print(f"↕️ Vertical flip: {'ON' if flipped else 'OFF'}")
+                elif key == ord('n'):
+                    self.video_transformer.reset_transforms()
+                    print("🔄 Reset to normal orientation")
+                elif key == ord('c'):
+                    self.show_controls = not self.show_controls
+                    print(f"📋 Controls overlay: {'ON' if self.show_controls else 'OFF'}")
                     
         except KeyboardInterrupt:
             print("Application interrupted by user")
@@ -130,15 +160,18 @@ class GyattFormApp:
         """Process a single frame through the analysis pipeline."""
         start_time = time.time()
         
-        # 1. Preprocess frame
-        processed_frame = self.frame_processor.preprocess_frame(frame)
-        if processed_frame is None:
-            processed_frame = frame
+        # 1. Apply video transformations first
+        transformed_frame = self.video_transformer.transform_frame(frame)
         
-        # 2. Detect pose
+        # 2. Preprocess frame
+        processed_frame = self.frame_processor.preprocess_frame(transformed_frame)
+        if processed_frame is None:
+            processed_frame = transformed_frame
+        
+        # 3. Detect pose
         pose_data = self.pose_detector.detect_pose(processed_frame, start_time)
         
-        # 3. Create display frame
+        # 4. Create display frame
         display_frame = processed_frame.copy()
         
         # 4. Analyze movement if pose detected
@@ -147,7 +180,7 @@ class GyattFormApp:
         rep_count = 0
         
         if pose_data is not None:
-            # Draw pose landmarks
+            # Draw pose landmarks with enhanced visibility
             display_frame = self.pose_detector.draw_landmarks(display_frame, pose_data)
             
             # Calculate elbow angle
@@ -208,13 +241,30 @@ class GyattFormApp:
             cv2.putText(display_frame, fps_text, (10, y_offset), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
         
-        # 7. Add instructions
-        cv2.putText(display_frame, "Press 'q' to quit", (10, display_frame.shape[0] - 20), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        # 7. Add control overlay if enabled
+        if self.show_controls:
+            display_frame = add_control_overlay(display_frame, self.video_transformer)
+        else:
+            # Just show basic quit instruction
+            cv2.putText(display_frame, "Press 'q' to quit, 'c' for controls", (10, display_frame.shape[0] - 20), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
         
         # 8. Console output for debugging
-        if current_state and elbow_angle > 0:
-            print(f"State: {current_state.value.upper():<12} | Angle: {elbow_angle:6.1f}° | Reps: {rep_count}")
+        if pose_data is not None:
+            visible_kp_count = len([kp for kp in pose_data.keypoints.values() if kp.is_visible(0.3)])
+            if current_state and elbow_angle > 0:
+                print(f"State: {current_state.value.upper():<12} | Angle: {elbow_angle:6.1f}° | Reps: {rep_count} | Keypoints: {visible_kp_count}")
+            elif visible_kp_count > 0:
+                print(f"Pose detected with {visible_kp_count} visible keypoints, confidence: {pose_data.confidence:.2f}")
+        else:
+            # Only print occasionally to avoid spam
+            if hasattr(self, '_no_pose_counter'):
+                self._no_pose_counter += 1
+            else:
+                self._no_pose_counter = 1
+            
+            if self._no_pose_counter % 30 == 0:  # Every 30 frames (~1 second)
+                print("No pose detected - check camera/lighting")
         
         # 9. Display frame
         cv2.imshow('GYATT Form - Pushup Analysis', display_frame)

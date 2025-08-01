@@ -35,7 +35,7 @@ class Keypoint:
     
     def is_visible(self, threshold: float = 0.5) -> bool:
         """Check if keypoint is visible above threshold."""
-        return self.visibility >= threshold and self.presence >= threshold
+        return self.visibility >= threshold
 
 
 @dataclass

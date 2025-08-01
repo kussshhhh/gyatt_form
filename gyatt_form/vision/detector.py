@@ -120,8 +120,15 @@ class PoseDetector:
         # Convert keypoints back to MediaPipe format for drawing
         height, width = image.shape[:2]
         
-        # Draw connections between keypoints
+        # Count visible keypoints for debugging
+        visible_keypoints = [kp for kp in pose_data.keypoints.values() if kp.is_visible(0.3)]
+        
+        # Lower visibility threshold for more visible skeleton
+        visibility_threshold = 0.3
+        
+        # Draw connections between keypoints with thicker, more visible lines
         connections = self.mp_pose.POSE_CONNECTIONS
+        lines_drawn = 0
         
         for connection in connections:
             start_idx, end_idx = connection
@@ -133,17 +140,49 @@ class PoseDetector:
                     start_kp = pose_data.keypoints[start_name]
                     end_kp = pose_data.keypoints[end_name]
                     
-                    if start_kp.is_visible(0.5) and end_kp.is_visible(0.5):
+                    if start_kp.is_visible(visibility_threshold) and end_kp.is_visible(visibility_threshold):
                         start_pos = start_kp.to_pixel_coords(width, height)
                         end_pos = end_kp.to_pixel_coords(width, height)
                         
-                        cv2.line(image, start_pos, end_pos, (0, 255, 0), 2)
+                        # Make lines more visible with different colors for different body parts
+                        if any(x in start_name or x in end_name for x in ['nose', 'eye', 'ear', 'mouth']):
+                            line_color = (255, 255, 0)  # Yellow for face
+                        elif any(x in start_name or x in end_name for x in ['shoulder', 'elbow', 'wrist', 'thumb', 'index', 'pinky']):
+                            line_color = (0, 255, 255)  # Cyan for arms/hands  
+                        elif any(x in start_name or x in end_name for x in ['hip', 'knee', 'ankle', 'heel', 'foot']):
+                            line_color = (255, 0, 255)  # Magenta for legs/feet
+                        else:
+                            line_color = (0, 255, 0)    # Green for torso
+                        
+                        # Draw thicker lines with black outline for better visibility
+                        cv2.line(image, start_pos, end_pos, (0, 0, 0), 5)     # Black outline
+                        cv2.line(image, start_pos, end_pos, line_color, 3)    # Colored line
+                        lines_drawn += 1
         
-        # Draw keypoints
+        # Draw keypoints with larger, more visible circles
+        keypoints_drawn = 0
         for name, keypoint in pose_data.keypoints.items():
-            if keypoint.is_visible(0.5):
+            if keypoint.is_visible(visibility_threshold):
                 pos = keypoint.to_pixel_coords(width, height)
-                color = (0, 0, 255) if keypoint.visibility > 0.8 else (0, 255, 255)
-                cv2.circle(image, pos, 4, color, -1)
+                
+                # Color-code keypoints by body part
+                if 'face' in name or 'nose' in name or 'eye' in name or 'ear' in name or 'mouth' in name:
+                    color = (255, 255, 0)  # Yellow for face
+                elif 'shoulder' in name or 'elbow' in name or 'wrist' in name or any(x in name for x in ['thumb', 'index', 'pinky']):
+                    color = (0, 255, 255)  # Cyan for arms/hands
+                elif 'hip' in name or 'knee' in name or 'ankle' in name or 'heel' in name or 'foot' in name:
+                    color = (255, 0, 255)  # Magenta for legs/feet
+                else:
+                    color = (0, 0, 255)    # Red for other
+                
+                # Draw larger circles with white border for visibility
+                cv2.circle(image, pos, 6, (255, 255, 255), 2)  # White border
+                cv2.circle(image, pos, 4, color, -1)           # Colored center
+                keypoints_drawn += 1
+        
+        # Add debug info to image
+        debug_text = f"Keypoints: {keypoints_drawn}, Lines: {lines_drawn}"
+        cv2.putText(image, debug_text, (10, height - 10), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
         
         return image
