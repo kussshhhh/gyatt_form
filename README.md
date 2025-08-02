@@ -2,26 +2,13 @@
 
 A computer vision-based system for analyzing and providing real-time feedback on exercise form, specifically designed for push-up analysis using pose estimation.
 
-## 🎯 Overview
+## Overview
 
-GYATT Form uses MediaPipe pose estimation to track body keypoints and analyze exercise form in real-time. The system provides instant feedback to help users maintain proper form during workouts.
+GYATT Form uses MediaPipe pose estimation to track body keypoints and analyze exercise form in real-time. The system provides instant feedback to help users maintain proper form during workouts and counts reps.
 
-## ✨ Current Features (Analysis Module Complete!)
 
-- ✅ **Real-time camera capture** with configurable resolution and FPS
-- ✅ **MediaPipe pose detection** - detects 33 body keypoints 
-- ✅ **Live pose visualization** - skeleton overlay on video feed
-- ✅ **Frame preprocessing** - enhancement and quality validation
-- ✅ **FPS monitoring** - real-time performance tracking
-- ✅ **Confidence scoring** - pose detection quality metrics
-- 🆕 **Pushup movement analysis** - tracks elbow angles and body position
-- 🆕 **State machine** - READY → DESCENDING → BOTTOM → ASCENDING → TOP
-- 🆕 **Rep counter** - automatically counts completed pushup cycles
-- 🆕 **Video file support** - analyze recorded workout videos
-- 🆕 **Real-time feedback** - shows current state and rep count
-- 🆕 **Graphical file selector** - UI dialog to choose camera or video file
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Setup with UV (Recommended)
 ```bash
@@ -38,20 +25,7 @@ python3 demo.py --ui
 # Or analyze a video file directly
 python3 demo.py --video path/to/your/pushup_video.mp4
 ```
-
-### 2. Alternative Setup (Standard pip)
-```bash
-# Check what's missing
-python3 check_dependencies.py
-
-# Install required packages
-pip install opencv-python mediapipe numpy scipy
-
-# Run demo
-python3 demo.py
-```
-
-### 3. Activate Environment Manually
+### 2. Activate Environment Manually
 ```bash
 # If using the virtual environment manually
 source .venv/bin/activate
@@ -63,7 +37,7 @@ python3 demo.py
 - **Position yourself** in front of the camera for best results
 - **Good lighting** improves detection accuracy
 
-## 📋 System Requirements
+## System Requirements
 
 - **Python 3.8+**
 - **Webcam** (built-in or USB camera)
@@ -73,7 +47,7 @@ python3 demo.py
   - NumPy 1.21.0+ (`numpy`)
   - SciPy 1.7.0+ (`scipy`)
 
-## 🏗️ Architecture
+## Architecture
 
 The system is built with a modular architecture:
 
@@ -92,7 +66,7 @@ gyatt_form/
 └── main.py         # Application entry point
 ```
 
-## 🎮 What You'll See
+## What You'll See
 
 When you run the demo, you'll see:
 - **Live camera feed** with your pose overlay
@@ -115,7 +89,7 @@ State: ASCENDING  | Angle: 112.5° | Reps: 0
 State: TOP        | Angle: 165.4° | Reps: 1
 ```
 
-## 🔧 Configuration
+## Configuration
 
 The system uses configuration classes for easy customization:
 
@@ -128,23 +102,7 @@ config.frame_height = 720
 config.fps = 60           # Higher frame rate
 ```
 
-## 🚧 Coming Next
-
-The vision module is complete! Next phases will add:
-- **Form analysis** - push-up technique validation
-- **Rep counting** - automatic repetition detection
-- **Real-time feedback** - visual and audio coaching
-- **Performance tracking** - progress metrics and history
-
-## 🛠️ Development Status
-
-- ✅ **Vision Module** - Complete and functional
-- ✅ **Analysis Module** - Complete with pushup movement tracking and rep counting
-- 🚧 **Feedback Module** - Architecture ready, implementation pending
-- ✅ **Data Models** - Core structures implemented
-- ✅ **Configuration** - Flexible config system implemented
-
-## 🎯 Usage Examples
+## Usage Examples
 
 ### Graphical Interface (Recommended):
 ```bash

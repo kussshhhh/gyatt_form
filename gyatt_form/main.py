@@ -26,6 +26,8 @@ from .feedback.guidance import GuidanceSystem
 from .feedback.visual import VisualFeedback
 from .utils.logger import setup_logging, PerformanceLogger
 from .utils.ui_helpers import select_input_source, show_welcome_message, get_video_file_info
+from .ui.modern_display import render_modern_ui
+from .ui.modern_skeleton import draw_modern_landmarks
 
 
 class GyattFormApp:
@@ -66,6 +68,9 @@ class GyattFormApp:
         # Video transformation controls
         self.video_transformer = VideoTransformer()
         self.show_controls = True
+        
+        # UI configuration
+        self.use_modern_ui = True  # Toggle for modern UI vs classic UI
         
         # Rep analysis and logging
         self.rep_analyzer = RepAnalyzer()
@@ -152,6 +157,9 @@ class GyattFormApp:
                 elif key == ord('c'):
                     self.show_controls = not self.show_controls
                     print(f"📋 Controls overlay: {'ON' if self.show_controls else 'OFF'}")
+                elif key == ord('u'):
+                    self.use_modern_ui = not self.use_modern_ui
+                    print(f"🎨 UI Mode: {'Modern' if self.use_modern_ui else 'Classic'}")
                     
         except KeyboardInterrupt:
             print("Application interrupted by user")
@@ -184,8 +192,11 @@ class GyattFormApp:
         rep_count = 0
         
         if pose_data is not None:
-            # Draw pose landmarks with enhanced visibility
-            display_frame = self.pose_detector.draw_landmarks(display_frame, pose_data)
+            # Draw pose landmarks with modern styling
+            if self.use_modern_ui:
+                display_frame = draw_modern_landmarks(display_frame, pose_data)
+            else:
+                display_frame = self.pose_detector.draw_landmarks(display_frame, pose_data)
             
             # Calculate elbow angle
             elbow_angle = AngleCalculator.calculate_average_elbow_angle(pose_data)
@@ -207,39 +218,8 @@ class GyattFormApp:
                 keypoint_count, rep_completed
             )
             
-            # Add detection info
-            confidence_text = f"Confidence: {pose_data.confidence:.2f}"
-            keypoint_count = len([kp for kp in pose_data.keypoints.values() if kp.is_visible(0.5)])
-            keypoint_text = f"Keypoints: {keypoint_count}/33"
-            
-            cv2.putText(display_frame, confidence_text, (10, 30), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-            cv2.putText(display_frame, keypoint_text, (10, 60), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-        else:
-            cv2.putText(display_frame, "No pose detected", (10, 30), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
         
-        # 5. Add analysis info
-        y_offset = 90
-        if current_state:
-            state_text = f"State: {current_state.value.upper()}"
-            cv2.putText(display_frame, state_text, (10, y_offset), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2)
-            y_offset += 30
-        
-        if elbow_angle > 0:
-            angle_text = f"Elbow Angle: {elbow_angle:.1f}°"
-            cv2.putText(display_frame, angle_text, (10, y_offset), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-            y_offset += 30
-        
-        rep_text = f"Reps: {rep_count}"
-        cv2.putText(display_frame, rep_text, (10, y_offset), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-        y_offset += 30
-        
-        # 6. Add FPS counter
+        # 5. Calculate FPS for display
         self.fps_counter += 1
         if time.time() - self.fps_start_time >= 1.0:
             fps = self.fps_counter / (time.time() - self.fps_start_time)
@@ -247,10 +227,53 @@ class GyattFormApp:
             self.fps_start_time = time.time()
             self.current_fps = fps
         
-        if hasattr(self, 'current_fps'):
-            fps_text = f"FPS: {self.current_fps:.1f}"
-            cv2.putText(display_frame, fps_text, (10, y_offset), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+        current_fps = getattr(self, 'current_fps', 0.0)
+        
+        # 6. Render UI overlay
+        if self.use_modern_ui:
+            # Use modern UI system
+            display_frame = render_modern_ui(
+                display_frame, pose_data, elbow_angle, current_state, rep_count, current_fps
+            )
+        else:
+            # Use classic UI system
+            if pose_data is not None:
+                # Add detection info
+                confidence_text = f"Confidence: {pose_data.confidence:.2f}"
+                keypoint_count = len([kp for kp in pose_data.keypoints.values() if kp.is_visible(0.5)])
+                keypoint_text = f"Keypoints: {keypoint_count}/33"
+                
+                cv2.putText(display_frame, confidence_text, (10, 30), 
+                           cv2.FONT_HERSHEY_DUPLEX, 0.7, (0, 255, 0), 2)
+                cv2.putText(display_frame, keypoint_text, (10, 60), 
+                           cv2.FONT_HERSHEY_DUPLEX, 0.7, (0, 255, 0), 2)
+            else:
+                cv2.putText(display_frame, "No pose detected", (10, 30), 
+                           cv2.FONT_HERSHEY_DUPLEX, 0.7, (0, 0, 255), 2)
+            
+            # Classic analysis info
+            y_offset = 90
+            if current_state:
+                state_text = f"State: {current_state.value.upper()}"
+                cv2.putText(display_frame, state_text, (10, y_offset), 
+                           cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 0, 255), 2)
+                y_offset += 30
+            
+            if elbow_angle > 0:
+                angle_text = f"Elbow Angle: {elbow_angle:.1f}°"
+                cv2.putText(display_frame, angle_text, (10, y_offset), 
+                           cv2.FONT_HERSHEY_DUPLEX, 0.7, (0, 255, 255), 2)
+                y_offset += 30
+            
+            rep_text = f"Reps: {rep_count}"
+            cv2.putText(display_frame, rep_text, (10, y_offset), 
+                       cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 255, 0), 2)
+            y_offset += 30
+            
+            if hasattr(self, 'current_fps'):
+                fps_text = f"FPS: {self.current_fps:.1f}"
+                cv2.putText(display_frame, fps_text, (10, y_offset), 
+                           cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 0), 2)
         
         # 7. Add control overlay if enabled
         if self.show_controls:

@@ -23,6 +23,8 @@ from gyatt_form.analysis.state_machine import MovementStateMachine
 from gyatt_form.analysis.rep_counter import RepCounter
 from gyatt_form.utils.geometry import AngleCalculator
 from gyatt_form.utils.video_controls import VideoTransformer
+from gyatt_form.ui.modern_display import render_modern_ui
+from gyatt_form.ui.modern_skeleton import draw_modern_landmarks
 
 
 class VideoExporter:
@@ -46,6 +48,9 @@ class VideoExporter:
         self.video_writer = None
         self.total_frames = 0
         self.processed_frames = 0
+        
+        # UI configuration - use modern UI for exports
+        self.use_modern_ui = True
         
     def initialize_components(self):
         """Initialize all processing components."""
@@ -224,8 +229,11 @@ class VideoExporter:
         rep_count = 0
         
         if pose_data is not None:
-            # Draw pose landmarks
-            display_frame = self.pose_detector.draw_landmarks(display_frame, pose_data)
+            # Draw pose landmarks with modern styling
+            if self.use_modern_ui:
+                display_frame = draw_modern_landmarks(display_frame, pose_data)
+            else:
+                display_frame = self.pose_detector.draw_landmarks(display_frame, pose_data)
             
             # Calculate elbow angle
             elbow_angle = AngleCalculator.calculate_average_elbow_angle(pose_data)
@@ -237,39 +245,52 @@ class VideoExporter:
             rep_completed = self.rep_counter.update(current_state, elbow_angle, 100.0, start_time)
             rep_count = self.rep_counter.get_rep_count()
             
-            # Add analysis info to frame
-            confidence_text = f"Confidence: {pose_data.confidence:.2f}"
-            keypoint_count = len([kp for kp in pose_data.keypoints.values() if kp.is_visible(0.5)])
-            keypoint_text = f"Keypoints: {keypoint_count}/33"
+        
+        # Render UI overlay
+        if self.use_modern_ui:
+            # Calculate a mock FPS for display (not meaningful for export)
+            mock_fps = 30.0 if self.total_frames > 0 else 0.0
             
-            cv2.putText(display_frame, confidence_text, (10, 30), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-            cv2.putText(display_frame, keypoint_text, (10, 60), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            # Use modern UI system
+            display_frame = render_modern_ui(
+                display_frame, pose_data, elbow_angle, current_state, rep_count, mock_fps
+            )
+        else:
+            # Use classic UI system
+            if pose_data is not None:
+                # Add analysis info to frame
+                confidence_text = f"Confidence: {pose_data.confidence:.2f}"
+                keypoint_count = len([kp for kp in pose_data.keypoints.values() if kp.is_visible(0.5)])
+                keypoint_text = f"Keypoints: {keypoint_count}/33"
+                
+                cv2.putText(display_frame, confidence_text, (10, 30), 
+                           cv2.FONT_HERSHEY_DUPLEX, 0.7, (0, 255, 0), 2)
+                cv2.putText(display_frame, keypoint_text, (10, 60), 
+                           cv2.FONT_HERSHEY_DUPLEX, 0.7, (0, 255, 0), 2)
+            
+            # Classic analysis info
+            y_offset = 90
+            if current_state:
+                state_text = f"State: {current_state.value.upper()}"
+                cv2.putText(display_frame, state_text, (10, y_offset), 
+                           cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 0, 255), 2)
+                y_offset += 30
+            
+            if elbow_angle > 0:
+                angle_text = f"Elbow Angle: {elbow_angle:.1f}°"
+                cv2.putText(display_frame, angle_text, (10, y_offset), 
+                           cv2.FONT_HERSHEY_DUPLEX, 0.7, (0, 255, 255), 2)
+                y_offset += 30
+            
+            rep_text = f"Reps: {rep_count}"
+            cv2.putText(display_frame, rep_text, (10, y_offset), 
+                       cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 255, 0), 2)
         
-        # Add analysis info
-        y_offset = 90
-        if current_state:
-            state_text = f"State: {current_state.value.upper()}"
-            cv2.putText(display_frame, state_text, (10, y_offset), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2)
-            y_offset += 30
-        
-        if elbow_angle > 0:
-            angle_text = f"Elbow Angle: {elbow_angle:.1f}°"
-            cv2.putText(display_frame, angle_text, (10, y_offset), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-            y_offset += 30
-        
-        rep_text = f"Reps: {rep_count}"
-        cv2.putText(display_frame, rep_text, (10, y_offset), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-        
-        # Add progress indicator
+        # Add export progress indicator (always show regardless of UI mode)
         progress = (self.processed_frames / self.total_frames) * 100 if self.total_frames > 0 else 0
         progress_text = f"Export Progress: {progress:.1f}%"
         cv2.putText(display_frame, progress_text, (10, display_frame.shape[0] - 20), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
+                   cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 0), 1)
         
         return display_frame
 

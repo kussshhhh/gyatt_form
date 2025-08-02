@@ -113,11 +113,13 @@ class VideoTransformer:
     def get_control_help(self) -> list:
         """Get list of control instructions."""
         return [
-            "Video Controls:",
+            "Controls:",
             "'r' - Rotate 90° clockwise",
             "'h' - Flip horizontal",
             "'v' - Flip vertical", 
             "'n' - Reset to normal",
+            "'c' - Toggle controls",
+            "'u' - Toggle UI style",
             "'q' - Quit"
         ]
 
