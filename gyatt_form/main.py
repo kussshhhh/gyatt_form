@@ -21,6 +21,7 @@ from .analysis.state_machine import MovementStateMachine
 from .analysis.rep_counter import RepCounter
 from .utils.geometry import AngleCalculator
 from .utils.video_controls import VideoTransformer, detect_video_orientation, suggest_rotation_for_vertical, add_control_overlay
+from .utils.rep_analyzer import RepAnalyzer
 from .feedback.guidance import GuidanceSystem
 from .feedback.visual import VisualFeedback
 from .utils.logger import setup_logging, PerformanceLogger
@@ -65,6 +66,9 @@ class GyattFormApp:
         # Video transformation controls
         self.video_transformer = VideoTransformer()
         self.show_controls = True
+        
+        # Rep analysis and logging
+        self.rep_analyzer = RepAnalyzer()
     
     def initialize_components(self) -> bool:
         """Initialize all system components. Returns True if successful."""
@@ -196,6 +200,13 @@ class GyattFormApp:
             
             rep_count = self.rep_counter.get_rep_count()
             
+            # Log data for analysis
+            keypoint_count = len([kp for kp in pose_data.keypoints.values() if kp.is_visible(0.3)])
+            self.rep_analyzer.log_state_transition(
+                current_state, elbow_angle, pose_data.confidence, 
+                keypoint_count, rep_completed
+            )
+            
             # Add detection info
             confidence_text = f"Confidence: {pose_data.confidence:.2f}"
             keypoint_count = len([kp for kp in pose_data.keypoints.values() if kp.is_visible(0.5)])
@@ -273,6 +284,24 @@ class GyattFormApp:
         """Cleanup resources and save session data."""
         self.running = False
         
+        # Save analysis data
+        if hasattr(self, 'rep_analyzer'):
+            print("\n🔍 Analyzing session data...")
+            summary = self.rep_analyzer.save_session_data()
+            
+            print(f"\n📊 Session Analysis:")
+            print(f"  - Rep Success Rate: {summary.success_rate:.1f}%")
+            print(f"  - Total Attempts: {summary.rep_attempts}")
+            print(f"  - Successful Reps: {summary.successful_reps}")
+            
+            if summary.common_failure_patterns:
+                print(f"  - Common Failures: {', '.join(summary.common_failure_patterns[:3])}")
+            
+            if summary.recommendations:
+                print(f"\n💡 Recommendations:")
+                for rec in summary.recommendations[:3]:
+                    print(f"  - {rec}")
+        
         if self.camera_manager:
             self.camera_manager.stop_capture()
         
@@ -280,7 +309,7 @@ class GyattFormApp:
             self.pose_detector.cleanup()
         
         cv2.destroyAllWindows()
-        print("Application cleanup completed")
+        print("\nApplication cleanup completed")
     
     def set_video_source(self, video_path: str) -> None:
         """Set video file as input source."""

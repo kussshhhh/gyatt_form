@@ -112,8 +112,9 @@ class RepCounter:
                     return self._complete_repetition(timestamp)
             
             # Reset if we see a starting state again (new rep starting)
-            elif current_state in self.valid_start_states and self.sequence_index > 2:
-                # Only reset if we're past the initial states to avoid false resets
+            elif current_state in self.valid_start_states and self.sequence_index >= len(self.required_sequence):
+                # Only reset if we completed a full sequence to avoid false resets
+                print(f"DEBUG: Starting new rep after completion, total reps: {self.total_reps}")
                 self._reset_current_rep()
                 self.current_rep_start = timestamp
         
@@ -161,6 +162,13 @@ class RepCounter:
     
     def get_rep_count(self) -> int:
         """Get total number of completed repetitions."""
+        # Safeguard: total_reps should never decrease
+        if hasattr(self, '_last_reported_count'):
+            if self.total_reps < self._last_reported_count:
+                print(f"WARNING: Rep count decreased from {self._last_reported_count} to {self.total_reps}!")
+                self.total_reps = self._last_reported_count  # Prevent going backwards
+        
+        self._last_reported_count = self.total_reps
         return self.total_reps
     
     def get_valid_rep_count(self) -> int:

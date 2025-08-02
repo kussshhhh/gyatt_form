@@ -82,16 +82,17 @@ class CameraManager:
         if not self.capturing or self.cap is None:
             return None
         
-        # Frame rate control
-        current_time = time.time()
-        if (current_time - self.last_frame_time) < self.target_frame_interval:
-            return None
+        # Frame rate control - skip for video files to process all frames
+        if not self.is_video_file:
+            current_time = time.time()
+            if (current_time - self.last_frame_time) < self.target_frame_interval:
+                return None
+            self.last_frame_time = current_time
         
         ret, frame = self.cap.read()
         if not ret:
             return None
         
-        self.last_frame_time = current_time
         self.frame_count += 1
         
         return frame

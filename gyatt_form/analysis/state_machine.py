@@ -45,12 +45,12 @@ class MovementStateMachine:
         
         # Thresholds for state detection
         self.top_threshold = 150.0      # Angle for top position
-        self.bottom_threshold = 90.0    # Angle for bottom position
-        self.movement_threshold = 5.0   # Minimum angle change for movement detection
+        self.bottom_threshold = 100.0   # Angle for bottom position
+        self.movement_threshold = 3.0   # Minimum angle change for movement detection (reduced for sensitivity)
         
-        # Smoothing parameters
-        self.min_state_frames = 3       # Minimum frames to confirm state
-        self.transition_hysteresis = 10.0  # Prevents oscillation at boundaries
+        # Smoothing parameters  
+        self.min_state_frames = 1       # Minimum frames to confirm state (reduced for fast movements)
+        self.transition_hysteresis = 5.0   # Prevents oscillation at boundaries (reduced)
         
     def update_state(self, pose_data: PoseData) -> MovementState:
         """Update state based on current pose data."""

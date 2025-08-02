@@ -14,11 +14,11 @@ fi
 # Check if no arguments provided, default to UI mode
 if [ $# -eq 0 ]; then
     echo "🖥️  Using graphical interface to select input source..."
-    echo "💡 Tip: You can also use --video file.mp4 or --camera-index 1"
+    echo "💡 Tip: You can also use --video file.mp4 or --export output.mp4"
     source .venv/bin/activate
-    python3 demo.py --ui
+    python3 -m gyatt_form.main --ui
 else
     # Pass through all arguments
     source .venv/bin/activate
-    python3 demo.py "$@"
+    python3 -m gyatt_form.main "$@"
 fi
